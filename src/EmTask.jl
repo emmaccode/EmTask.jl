@@ -4,6 +4,7 @@ using ToolipsSession
 using ToolipsDefaults
 using TOML
 using Dates
+using Alert
 import Base: write
 
 mutable struct Task <: Servable
@@ -19,10 +20,18 @@ end
 function build_task(c::Connection, t::Task)
     mainsection = section("$(t.name)-box")
     nameheader = h("$(t.name)-name", 3, text = t.name)
-    status = div("$(t.name)-status")
-    style!(status, "display" => "inline-block", "background-color" => "green")
-    if t.taskdata["status"] == false
-        style!(status, "background-color" => "red")
+    status = button("$(t.name)-status", text = "not done")
+    style!(status, "display" => "inline-block", "background-color" => "red",
+    "width" => 100percent)
+    on(c, status, "click") do cm::ComponentModifier
+        style!(cm, status, "background-color" => "green")
+        set_text!(cm, status, "done!")
+        t.taskdata["status"] = true
+        save(c, t)
+    end
+    if t.taskdata["status"] == true
+        style!(status, "background-color" => "green")
+        status[:text] = "done!"
     end
     push!(mainsection, nameheader, status)
     mainsection
@@ -30,10 +39,10 @@ end
 
 function save(c::Connection, t::Task)
     cfg_uri = c[:Tasks].cfg_uri
-    toml_dct = TOML.parse(read(cfg_url, String))
+    toml_dct = TOML.parse(read(cfg_uri, String))
     toml_dct["tasks"][t.name] = copy(t.taskdata)
     push!(toml_dct["tasks"][t.name], "date" => string(t.date))
-    open(cfg_url, "w") do o::IO
+    open(cfg_uri, "w") do o::IO
            TOML.print(o, toml_dct)
     end
 end
@@ -57,7 +66,9 @@ function home(c::Connection)
     cfg_uri::String = c[:Tasks].cfg_uri
     emtsheet = ToolipsDefaults.sheet("emtask-sheet")
     write!(c, emtsheet)
+    bod = body("main-body")
     if ~(isfile(cfg_uri))
+        push!(bod, img("taskcover", src = "/emtask.png"))
         nameheading = h("nameheading", 1, text = "enter your name")
         style!(nameheading, "color" => "white")
         tdiv = ToolipsDefaults.textdiv("nameinput", text = "")
@@ -65,7 +76,6 @@ function home(c::Connection)
         setup_button = button("setupbttn", text = "setup !")
         style!(setup_button, "font-size" => 15pt, "margin-top" => 3px,
         "margin-left" => 5px)
-        bod = body("main-body")
         style!(bod, "background-color" => "#2b2242", "padding" => 10percent)
         on(c, setup_button, "click") do cm::ComponentModifier
             name = cm[tdiv]["text"]
@@ -87,9 +97,9 @@ function home(c::Connection)
     #==
     Main app
     ==#
-    bod = body("main-body")
+    push!(bod, img("taskcover", src = "/emtask.png"))
     style!(bod, "background-color" => "#2b2242", "padding" => 10percent)
-    datepanel = section("datepanel")
+    datepanel = iframe("datepanel")
     this_day = today()
     dsections = [Date(year(this_day), month(this_day), day(this_day) + e) for e in 0:6]
     tasks_dct = Dict{String, Vector{Task}}([dayname(d) => Vector{Task}() for d in dsections])
@@ -97,7 +107,7 @@ function home(c::Connection)
     ui_sections = Vector{Servable}([build_section(c, d) for d in dsections])
     [begin
 
-end for task in raw_tasks["repeating"]]
+    end for task in raw_tasks["repeating"]]
     [begin
         task_date = Dates.Date(task[2]["date"])
         if task_date in dsections
@@ -107,6 +117,32 @@ end for task in raw_tasks["repeating"]]
             push!(ui_sections["panel$(dayn)"][:children]["$(dayn)-box"][:children], build_task(c, new_task))
         end
     end for task in raw_tasks["tasks"]]
+    newbox = section("newpanel")
+    style!(newbox, "background-color" => "white")
+    push!(newbox, h("add1label", 4, text = "add new task"))
+    opts = Vector{Servable}([begin
+    comp = Component("day", "option")
+    comp[:text] = dayname(dayn)
+    comp
+    end for dayn in dsections])
+    dd = ToolipsDefaults.dropdown("mydrop", opts)
+    newnamebox = ToolipsDefaults.textdiv("newname", text = "enter new name")
+    on(c, newnamebox, "focus") do cm::ComponentModifier
+        set_text!(cm, newnamebox, "")
+    end
+    style!(newnamebox, "border-width" => 2px, "border-style" => "dashed",
+    "margin-top" => 5px, "margin-bottom" => 5px)
+    addtaskbutton = button("addtaskb", text = "add")
+    on(c, addtaskbutton, "click") do cm::ComponentModifier
+        sel_day = cm[dd]["value"]
+        name = cm[newnamebox]["text"]
+        dn = findall(d::Date -> dayname(d) == sel_day, dsections)
+        d = dsections[dn[1]]
+        save(c, Task(name, d))
+        alert!(cm, "task registered")
+    end
+    push!(newbox, dd, newnamebox, addtaskbutton)
+    push!(ui_sections, newbox)
     bod[:children] = ui_sections
     write!(c, bod)
 end
@@ -137,4 +173,5 @@ function start(IP::String = "127.0.0.1", PORT::Integer = 8000)
      ws = WebServer(IP, PORT, routes = routes, extensions = extensions)
      ws.start(); ws
 end
+
 end # - module

@@ -3,6 +3,12 @@
 julia_version = "1.7.2"
 manifest_format = "2.0"
 
+[[deps.Alert]]
+deps = ["Base64", "Dates", "Logging", "MacroTools", "Printf", "REPL"]
+git-tree-sha1 = "89a6ecff5408002c45e04db5aab395ba5915c81e"
+uuid = "28312eec-4d86-447d-83ad-bc2b262de792"
+version = "1.2.0"
+
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
 
@@ -109,6 +115,12 @@ deps = ["JuliaInterpreter"]
 git-tree-sha1 = "dedbebe234e06e1ddad435f5c6f4b85cd8ce55f7"
 uuid = "6f1432cf-f94c-5a45-995e-cdbf5db27b0b"
 version = "2.2.2"
+
+[[deps.MacroTools]]
+deps = ["Markdown", "Random"]
+git-tree-sha1 = "42324d08725e200c23d4dfb549e0d5d89dede2d2"
+uuid = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
+version = "0.5.10"
 
 [[deps.Markdown]]
 deps = ["Base64"]
